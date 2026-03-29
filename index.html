@@ -1,321 +1,591 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="tr">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>sik</title>
-<style>
-  :root{--bg:#0b1020;--accent:#ffd166;--muted:#7b8aa3}
-  html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Arial}
-  body{display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#081022 0%, #071726 100%);color:#fff}
-  #gameWrap{width:100%;max-width:640px;height:100vh;display:flex;flex-direction:column}
-  header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px}
-  .stat{font-size:14px;color:var(--muted)}
-  canvas{flex:1;display:block;touch-action:none}
-  .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
-  .panel{background:rgba(4,8,20,0.7);backdrop-filter:blur(6px);padding:18px;border-radius:12px;text-align:center;pointer-events:auto}
-  button{background:var(--accent);border:none;padding:10px 14px;border-radius:8px;font-weight:600;cursor:pointer}
-  .small{font-size:13px;color:var(--muted);margin-top:8px}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ZONYFEST: Menajerlik Serüveni</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        
+        body {
+            background-color: #000;
+            color: #fff;
+            font-family: 'Press Start 2P', cursive;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* OYUN ALANI (Tablet/Telefon Tüm Ekranı Kaplar) */
+        #game-container {
+            width: 100%;
+            height: 100dvh;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 1;
+            /* ANİMASYONLU ARKA PLAN BURAYA TAŞINDI */
+            background: linear-gradient(-45deg, #1a0b2e, #ff007f, #0d0d0d, #4a044e);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Üst Stat Çubuğu - Tabletlere Özel Ortalama */
+        #top-ui {
+            display: none; 
+            flex-direction: column;
+            width: 100%;
+            align-items: center; /* Geniş ekranlarda statları ortalar */
+            background: rgba(0,0,0,0.85); /* Arka plan animasyonundan ayırmak için hafif karartma */
+            border-bottom: 3px solid #ff007f;
+            z-index: 10;
+        }
+        #stats-bar {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            max-width: 600px; /* Tablette ekranın sonuna kadar uzamasını engeller */
+            padding: 2vh 10px 3vh 10px;
+            transition: all 0.3s;
+        }
+        .stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1; 
+            margin: 0 4px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        .stat-icon {
+            font-size: clamp(16px, 4vw, 24px); 
+            margin-bottom: 10px;
+            filter: drop-shadow(2px 2px 0px #000);
+        }
+        .stat-bar-bg { width: 100%; height: 6px; background: #333; border: 1px solid #777; border-radius: 3px; overflow: hidden; }
+        .stat-bar-fill { height: 100%; width: 50%; background: #fff; transition: width 0.3s ease, background-color 0.3s ease; }
+        
+        /* NET ETKİ GÖSTERGELERİ */
+        .indicator-container {
+            position: absolute;
+            top: clamp(25px, 6vw, 35px);
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 20px;
+            z-index: 11;
+        }
+        .indicator {
+            border-radius: 50%;
+            display: none;
+            border: 2px solid #fff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.8);
+            transition: all 0.2s ease;
+        }
+
+        .locked-stat { display: none !important; }
+
+        /* Oyun Alanı */
+        #card-area {
+            flex: 1;
+            position: relative;
+            display: none; 
+        }
+        #season-display {
+            position: absolute;
+            top: 3vh;
+            width: 100%;
+            text-align: center;
+            font-size: 14px;
+            color: #ff007f;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 0px #000;
+            z-index: 1;
+        }
+
+        /* KART TASARIMI (Geniş Ekran Koruması) */
+        #card {
+            width: 85%;
+            max-width: 380px; /* iPad'de kartın devasa olmasını engeller, telefon boyutu kadar kalır */
+            height: 55vh; 
+            max-height: 500px;
+            min-height: 350px;
+            background: #1c1c1c;
+            border: 4px solid #fff;
+            border-radius: 12px;
+            box-shadow: 10px 10px 20px rgba(0,0,0,0.8);
+            position: absolute;
+            top: 55%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 3vh 20px;
+            text-align: center;
+            z-index: 5;
+            cursor: grab;
+            touch-action: none;
+        }
+        #card:active { cursor: grabbing; }
+
+        /* PORTRELER */
+        .portrait-area {
+            width: clamp(90px, 25vw, 130px);
+            height: clamp(90px, 25vw, 130px);
+            margin-top: calc(-1 * clamp(45px, 12vw, 65px) - 3vh); 
+            margin-bottom: 3vh;
+            position: relative;
+            border-radius: 12px;
+            border: 4px solid #fff;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.9);
+            background: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        
+        #girl-img {
+            width: 100%; height: 100%; object-fit: cover; display: none; background-color: #222;
+        }
+        #npc-icon { font-size: clamp(40px, 10vw, 60px); display: none; filter: drop-shadow(4px 4px 0px #000); }
+
+        .char-name { font-size: clamp(12px, 4vw, 16px); color: #ff007f; margin-bottom: 2vh; text-shadow: 2px 2px 0 #000; }
+        .question-text { font-size: clamp(11px, 3.5vw, 14px); line-height: 1.8; flex: 1; display: flex; align-items: center; justify-content: center; pointer-events: none; padding: 0 5px; overflow-y: auto; }
+        
+        /* Kaydırma Seçenek Metinleri */
+        #choice-overlay-left, #choice-overlay-right {
+            position: absolute;
+            top: 2vh;
+            font-size: clamp(12px, 4vw, 16px);
+            font-weight: bold;
+            color: #fff;
+            opacity: 0;
+            z-index: 10;
+            pointer-events: none;
+            padding: 12px 18px;
+            border: 3px solid #fff;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.95);
+            max-width: 85%;
+            word-wrap: break-word;
+            box-shadow: 6px 6px 0px rgba(0,0,0,0.6);
+        }
+        #choice-overlay-left { right: -15px; transform: rotate(10deg); color: #ff4444; border-color: #ff4444;}
+        #choice-overlay-right { left: -15px; transform: rotate(-10deg); color: #44ff44; border-color: #44ff44;}
+
+        /* EKRANLAR VE MENÜLER */
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.75); /* Arkadaki animasyonun gözükmesi için yarı şeffaf */
+            backdrop-filter: blur(8px);
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+            text-align: center;
+        }
+        .overlay h1 { font-size: clamp(32px, 8vw, 48px); color: #ff007f; margin-bottom: 20px; text-shadow: 6px 6px 0 #000; line-height: 1.4; }
+        .overlay p { font-size: 13px; line-height: 2; margin-bottom: 40px; color: #eee; text-shadow: 1px 1px 2px #000; max-width: 600px;}
+        
+        .btn {
+            background: rgba(0,0,0,0.8); color: #fff; border: 4px solid #fff; padding: 2vh 30px;
+            font-family: inherit; font-size: 14px; box-shadow: 8px 8px 0px #ff007f;
+            cursor: pointer; width: 80%; max-width: 350px; margin-bottom: 25px; transition: 0.1s;
+        }
+        .btn:active { transform: translate(6px, 6px); box-shadow: 2px 2px 0px #ff007f; }
+
+        #game-over, #season-screen, #how-to-play { display: none; }
+    </style>
 </head>
 <body>
-<div id="gameWrap">
-  <header>
-    <div class="stat">Skorun: <span id="score">0</span></div>
-    <div class="stat">Hayatın: <span id="lives">3</span></div>
-  </header>
-  <div style="position:relative;flex:1;">
-    <canvas id="c"></canvas>
-    <div class="overlay" id="overlay">
-      <div class="panel" id="panel">
-        <h2 style="margin:0 0 6px 0">amınakodumun hayatı</h2>
-        <div class="small">çemberi ebenin amına oynatarak topu tut.</div>
-        <div style="height:12px"></div>
-        <button id="startBtn">oyna amınakoyımt</button>
-        <div class="small">sağ sol yaparak çemberi döndür ebeni sikim.</div>
-      </div>
+
+<div id="game-container">
+    
+    <div id="main-menu" class="overlay">
+        <h1>ZONYFEST</h1>
+        <p style="font-size: 16px; color: #fff; text-shadow: 2px 2px 0 #000; margin-bottom: 50px;">GIRL BAND MENAJERİ</p>
+        <button class="btn" onclick="startGame()">OYUNA BAŞLA</button>
+        <button class="btn" style="box-shadow: 8px 8px 0px #1E88E5;" onclick="showHowToPlay()">NASIL OYNANIR?</button>
     </div>
-  </div>
+
+    <div id="how-to-play" class="overlay">
+        <h1 style="font-size: 28px; color: #1E88E5;">SİSTEM</h1>
+        <p style="text-align: left; background: rgba(0,0,0,0.9); padding: 20px; border: 3px solid #fff; border-radius: 12px; box-shadow: 8px 8px 0px #000;">
+            Her sezon oyuna YENİ BİR STAT eklenir!<br><br>
+            👥 <b>HAYRANLAR:</b> Unutulursan biter.<br>
+            💰 <b>BÜTÇE:</b> Para biterse kovulursun.<br>
+            🧠 <b>MENTAL:</b> Sağlık çökerse biter.<br>
+            🤝 <b>UYUM:</b> Kavga çıkarsa grup dağılır.<br><br>
+            <i>(Sezon 2'den itibaren Medya, Güvenlik, Prestij ve Yasal süreçleri de yönetmek zorunda kalacaksın. Kartları akıllıca kaydır!)</i>
+        </p>
+        <button class="btn" style="box-shadow: 8px 8px 0px #1E88E5;" onclick="hideHowToPlay()">ANLADIM</button>
+    </div>
+
+    <div id="top-ui">
+        <div id="stats-bar">
+            <div class="stat" id="stat-pop"><div class="stat-icon">👥</div><div class="indicator-container"><div class="indicator" id="ind-pop"></div></div><div class="stat-bar-bg"><div class="stat-bar-fill" id="bar-pop"></div></div></div>
+            <div class="stat" id="stat-money"><div class="stat-icon">💰</div><div class="indicator-container"><div class="indicator" id="ind-money"></div></div><div class="stat-bar-bg"><div class="stat-bar-fill" id="bar-money"></div></div></div>
+            <div class="stat" id="stat-mental"><div class="stat-icon">🧠</div><div class="indicator-container"><div class="indicator" id="ind-mental"></div></div><div class="stat-bar-bg"><div class="stat-bar-fill" id="bar-mental"></div></div></div>
+            <div class="stat" id="stat-harmony"><div class="stat-icon">🤝</div><div class="indicator-container"><div class="indicator" id="ind-harmony"></div></div><div class="stat-bar-bg"><div class="stat-bar-fill" id="bar-harmony"></div></div></div>
+            
+            <div class="stat locked-stat" id="stat-media"><div class="stat-icon">📸</div><div class="indicator-container"><div class="indicator" id="ind-media"></div></div><div class="stat-bar-bg"><div class="stat-bar-fill" id="bar-media"></div></div></div>
+            <div class="stat locked-stat" id="stat-security"><div class="stat-icon">🛡️</div><div class="indicator-container"><div class="indicator" id="ind-security"></div></div><div class="stat-bar-bg"><div class="stat-bar-fill" id="bar-security"></div></div></div>
+            <div class="stat locked-stat" id="stat-prestige"><div class="stat-icon">🌟</div><div class="indicator-container"><div class="indicator" id="ind-prestige"></div></div><div class="stat-bar-bg"><div class="stat-bar-fill" id="bar-prestige"></div></div></div>
+            <div class="stat locked-stat" id="stat-legal"><div class="stat-icon">⚖️</div><div class="indicator-container"><div class="indicator" id="ind-legal"></div></div><div class="stat-bar-bg"><div class="stat-bar-fill" id="bar-legal"></div></div></div>
+        </div>
+    </div>
+
+    <div id="card-area">
+        <div id="season-display">SEZON 1</div>
+        <div id="card">
+            <div id="choice-overlay-left">REDDET</div>
+            <div id="choice-overlay-right">KABUL ET</div>
+            
+            <div class="portrait-area" id="char-bg">
+                <img id="girl-img" src="" alt="">
+                <div id="npc-icon">📱</div>
+            </div>
+            
+            <div class="char-name" id="char-name">Karakter Adı</div>
+            <div class="question-text" id="question-text">Yükleniyor...</div>
+        </div>
+    </div>
+
+    <div id="game-over" class="overlay">
+        <h1 id="go-title">OYUN BİTTİ</h1>
+        <p id="go-desc" style="font-size: 16px;">Grup dağıldı.</p>
+        <button class="btn" onclick="location.reload()">MENÜYE DÖN</button>
+    </div>
+
+    <div id="season-screen" class="overlay">
+        <h1 id="season-title">SEZON BİTTİ</h1>
+        <p id="season-desc" style="font-size: 16px;">Zorluk artıyor. ZONYFEST'i ayakta tutabilecek misin?</p>
+        <button class="btn" onclick="nextSeason()">SONRAKİ SEZON</button>
+    </div>
 </div>
 
-<audio id="successSound" src="basari.ogg" preload="auto"></audio>
-<audio id="failSound" src="HASAR.ogg" preload="auto"></audio>
-
 <script>
-(() => {
-  const canvas = document.getElementById('c');
-  const ctx = canvas.getContext('2d');
-  const scoreEl = document.getElementById('score');
-  const livesEl = document.getElementById('lives');
-  const overlay = document.getElementById('overlay');
-  const startBtn = document.getElementById('startBtn');
-  const successSound = document.getElementById('successSound');
-  const failSound = document.getElementById('failSound');
+    const chars = {
+        miona: { type: 'girl', name: "Miona", src: "miona.png", bg: "#7f1d1d" }, 
+        dalya: { type: 'girl', name: "Dalya", src: "dalya.png", bg: "#831843" }, 
+        esna:  { type: 'girl', name: "Esna",  src: "esna.png",  bg: "#713f12" },  
+        lali:  { type: 'girl', name: "Lali",  src: "lali.png",  bg: "#4a044e" },  
+        zeyna: { type: 'girl', name: "Zeyna", src: "zeyna.png", bg: "#1e3a8a" }, 
+        sudea: { type: 'girl', name: "Sudea", src: "sudea.png", bg: "#14532d" }, 
+        prsude: { type: 'npc', name: "PR Sude", icon: "📱", bg: "#d97706" }, 
+        kerem:  { type: 'npc', name: "Kerem",   icon: "🎛️", bg: "#52525b" }, 
+        leyla:  { type: 'npc', name: "Leyla",   icon: "💼", bg: "#171717" }, 
+        fan:    { type: 'npc', name: "Fanlar",  icon: "💌", bg: "#064e3b" }, 
+        press:  { type: 'npc', name: "Medya",   icon: "📸", bg: "#1e40af" },
+        lawyer: { type: 'npc', name: "Avukat",  icon: "📜", bg: "#450a0a" },
+        guard:  { type: 'npc', name: "Güvenlik",icon: "🕶️", bg: "#0f172a" }
+    };
 
-  let W = 300, H = 600;
-  function resize(){
-    const ratio = devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = Math.floor(rect.width * ratio);
-    canvas.height = Math.floor(rect.height * ratio);
-    canvas.style.width = rect.width + 'px';
-    canvas.style.height = rect.height + 'px';
-    ctx.setTransform(ratio,0,0,ratio,0,0);
-    W = rect.width; H = rect.height;
-  }
-  function fitCanvas(){
-    canvas.style.width = '100%';
-    canvas.style.height = 'calc(100vh - 64px)';
-    resize();
-  }
-  window.addEventListener('resize', ()=>{fitCanvas(); resize();});
-  fitCanvas();
+    let stats = { pop: 50, money: 50, mental: 50, harmony: 50, media: 50, security: 50, prestige: 50, legal: 50 };
+    let unlockedStats = ['pop', 'money', 'mental', 'harmony']; 
+    let currentSeason = 1;
+    let cardsPlayed = 0;
+    const cardsPerSeason = 12;
 
-  let running = false;
-  let bullets = [];
-  let lastShot = 0;
-  let shotInterval = 1200;
-  let bulletSpeed = 100;
-  let maxBulletSpeed = 200;
-  let score = 0;
-  let lives = 3;
-  let flashEffect = { active: false, color: '', startTime: 0, duration: 300 };
+    const allEvents = [
+        // SEZON 1 (Sadece pop, money, mental, harmony)
+        { s: 1, char: chars.miona, text: "Yurttaki odaları seçiyoruz. Lider olduğum için en büyük odayı ben istiyorum!", left: { text: "Kura Çekin", effect: { harmony: +10, mental: -5 } }, right: { text: "Senindir", effect: { harmony: -15, mental: +10 } }},
+        { s: 1, char: chars.prsude, text: "Grup hesabını kim yönetecek? Miona her şeye karışıyor.", left: { text: "PR Ekibi Yönetsin", effect: { money: -5, harmony: +10 } }, right: { text: "Kızlar Yönetsin", effect: { pop: +15, harmony: -10 } }},
+        { s: 1, char: chars.zeyna, text: "Diyet listesi çok ağır. Sadece elma yiyerek sahnede bayılacağım.", left: { text: "Gizlice Yemek Ye", effect: { mental: +15, pop: -5 } }, right: { text: "Diyete Uyacaksın!", effect: { mental: -20, pop: +10 } }},
+        { s: 1, char: chars.kerem, text: "İlk şarkıda autotune çok belirgin. Böyle mi kalsın?", left: { text: "Doğal Sesler Ver", effect: { money: -5, pop: +10 } }, right: { text: "Modern Duyulsun", effect: { pop: -5, money: +10 } }},
+        { s: 1, char: chars.fan, text: "ZONYFEST ismi harika! Ama fandom adımız 'Zony'ler mi olsun?", left: { text: "Zony'ler Güzel", effect: { pop: +10 } }, right: { text: "Farklı Bir İsim Bulun", effect: { pop: -10, harmony: +5 } }},
 
-  let ring = {
-    radius: 140,
-    minRadius: 90,
-    maxRadius: 140,
-    thickness: 28,
-    segments: 22,
-    rotation: 0,
-    solidMask: []
-  };
+        // SEZON 2 (+ MEDYA STATI AÇILIR)
+        { s: 2, char: chars.press, text: "ZONYFEST'in şarkılarının çalıntı olduğu haberi manşetlerde!", left: { text: "Dava Açacağız De", effect: { media: +20, money: -15, pop: +10 } }, right: { text: "Sessiz Kalın", effect: { media: -30, pop: -20, mental: -10 } }},
+        { s: 2, char: chars.dalya, text: "Magazinciler beni gece kulübünden çıkarken çekti. Ne yapmalıyım?", left: { text: "Kabul Et Özür Dile", effect: { media: -15, pop: +10, mental: -15 } }, right: { text: "Sadece Suydu De", effect: { media: -20, harmony: -10, pop: -15 } }},
+        { s: 2, char: chars.prsude, text: "Televizyon şovuna çıkacağız ama sunucu çok agresif. Lali'yi ağlatabilir.", left: { text: "Şova Çıkmayın", effect: { media: -20, mental: +15, pop: -10 } }, right: { text: "Reyting Reytingdir", effect: { media: +25, pop: +15, mental: -25 } }},
+        { s: 2, char: chars.esna, text: "Canlı yayında rakip bir gruba hakaret ettim sanırım. Yanlış anlaşıldım!", left: { text: "Ağlayarak Açıklama Yap", effect: { media: +10, pop: -15, mental: -20 } }, right: { text: "İnkar Et", effect: { media: -25, harmony: -10 } }},
 
-  function initMask(){
-    const segCount = ring.segments;
-    const mask = new Array(segCount).fill(1);
-    const segmentSizes = [
-      Math.floor(Math.random()*4)+8,  
-      Math.floor(Math.random()*3)+5,  
-      Math.floor(Math.random()*2)+3   
+        // SEZON 3 (+ GÜVENLİK STATI AÇILIR)
+        { s: 3, char: chars.guard, text: "Sasaeng fanlar yurdun güvenlik kamerasını hacklemiş. Sistemi yenilememiz lazım.", left: { text: "En İyisini Alın", effect: { security: +30, money: -25 } }, right: { text: "Şifreleri Değiştir Yeter", effect: { security: -30, mental: -20 } }},
+        { s: 3, char: chars.lali, text: "Konserde sahnede havai fişekler çok yakınımda patlıyor, yanacaktım!", left: { text: "Pirotekniği İptal Et", effect: { security: +20, pop: -15, money: +10 } }, right: { text: "Şovun Parçası Dayan", effect: { security: -25, mental: -20, pop: +15 } }},
+        { s: 3, char: chars.sudea, text: "Havaalanında fanlar üstüme çullandı, çantamı çaldılar! İçinde günlüğüm vardı.", left: { text: "VIP Güvenlik Tut", effect: { security: +30, money: -20, mental: +10 } }, right: { text: "Polise Git", effect: { media: -20, security: +10 } }},
+        { s: 3, char: chars.leyla, text: "Konser alanında kapasitenin üstünde bilet sattık. İzdiham çıkabilir.", left: { text: "Fazla Biletleri İptal Et", effect: { security: +25, money: -30, media: +10 } }, right: { text: "Bir Şey Olmaz Devam", effect: { security: -40, money: +30, media: -20 } }},
+
+        // SEZON 4 (+ PRESTİJ STATI AÇILIR)
+        { s: 4, char: chars.kerem, text: "Yılın Müzik Ödülleri'ne adayız ama performans için cebimizden çok para çıkacak.", left: { text: "Harca, Prestij Lazım", effect: { prestige: +30, money: -35, pop: +15 } }, right: { text: "Basit Bir Şov Yap", effect: { prestige: -25, money: +15 } }},
+        { s: 4, char: chars.miona, text: "Lüks bir moda markası beni elçi yapmak istiyor ama ZONYFEST'ten ayrılmamı ima ettiler.", left: { text: "Bizi Satamazsın!", effect: { prestige: -15, harmony: -20, mental: -15 } }, right: { text: "Sadece Reklamı Kabul Et", effect: { prestige: +20, harmony: -30, money: +15 } }},
+        { s: 4, char: chars.press, text: "Eleştirmenler son albümün 'plastik ve ruhsuz' olduğunu yazıyor.", left: { text: "Akustik Konser Verin", effect: { prestige: +25, media: +15, pop: -10 } }, right: { text: "Biz Listelerde 1.yiz!", effect: { prestige: -20, media: -15, pop: +10 } }},
+        { s: 4, char: chars.zeyna, text: "Prestijli bir filmde başrol teklifi aldım. Ancak 6 ay gruptan uzak kalacağım.", left: { text: "Oyunculuğa İzin Ver", effect: { prestige: +35, harmony: -25, pop: -15 } }, right: { text: "Sen Bir Şarkıcısın", effect: { prestige: -20, mental: -30 } }},
+
+        // SEZON 5 (+ YASAL STATI AÇILIR)
+        { s: 5, char: chars.lawyer, text: "Kızların sözleşmeleri bitiyor. Şirket şartları ağırlaştırmak istiyor, yoksa dava açacaklar.", left: { text: "Kızları Savun, Mahkemeye Git", effect: { legal: -30, harmony: +40, money: -25 } }, right: { text: "Şirketin Yanında Dur", effect: { legal: +20, harmony: -50, mental: -40 } }},
+        { s: 5, char: chars.leyla, text: "Vergi dairesi şirketi inceliyor. ZONYFEST'in turne gelirlerinde açık var.", left: { text: "Cezayı Hemen Öde", effect: { legal: +30, money: -50 } }, right: { text: "Evrakları Yok Et", effect: { legal: -50, prestige: -30, media: -30 } }},
+        { s: 5, char: chars.dalya, text: "Gizli bir sözleşme imzalayıp rakip ajansa geçeceğim. Seni de yanımda götürebilirim.", left: { text: "Bu Bir Suç!", effect: { legal: -20, harmony: -40, mental: -15 } }, right: { text: "İhanet Et ve Geç", effect: { legal: -40, money: +50, harmony: -60 } }},
+        { s: 5, char: chars.fan, text: "Haklarınızı alamadığınızı duyduk. Fanlar şirketin önünde protesto yapıyor ve polisle çatışıyor!", left: { text: "Fanları Eve Gönder", effect: { legal: +20, media: +15, pop: -20 } }, right: { text: "Protestoyu Destekle", effect: { legal: -40, pop: +40, media: -30, security: -30 } }}
     ];
-    let positions = [];
-    for(let i=0;i<3;i++){
-      let pos;
-      let valid=false;
-      while(!valid){
-        pos = Math.floor(Math.random()*segCount);
-        valid = true;
-        for(let j=0;j<positions.length;j++){
-          const dist = Math.abs(pos-positions[j]);
-          if(dist<segmentSizes[i]+3){valid=false;break;}
+
+    let currentDeck = [];
+    let currentCard = null;
+
+    function showHowToPlay() { document.getElementById('how-to-play').style.display = 'flex'; }
+    function hideHowToPlay() { document.getElementById('how-to-play').style.display = 'none'; }
+    
+    function startGame() {
+        document.getElementById('main-menu').style.display = 'none';
+        document.getElementById('top-ui').style.display = 'flex';
+        document.getElementById('card-area').style.display = 'block';
+        
+        stats = { pop: 50, money: 50, mental: 50, harmony: 50, media: 50, security: 50, prestige: 50, legal: 50 };
+        unlockedStats = ['pop', 'money', 'mental', 'harmony'];
+        
+        document.getElementById('stat-media').classList.add('locked-stat');
+        document.getElementById('stat-security').classList.add('locked-stat');
+        document.getElementById('stat-prestige').classList.add('locked-stat');
+        document.getElementById('stat-legal').classList.add('locked-stat');
+
+        currentSeason = 1;
+        cardsPlayed = 0;
+        buildDeckForSeason();
+        updateUI();
+        drawCard();
+    }
+
+    function buildDeckForSeason() {
+        let seasonEvents = allEvents.filter(e => e.s === currentSeason);
+        currentDeck = [...seasonEvents].sort(() => Math.random() - 0.5);
+        
+        if(currentDeck.length < cardsPerSeason) {
+            let fallback = allEvents.filter(e => e.s < currentSeason).sort(() => Math.random() - 0.5);
+            currentDeck = currentDeck.concat(fallback.slice(0, cardsPerSeason - currentDeck.length));
         }
-      }
-      positions.push(pos);
     }
-    for(let i=0;i<3;i++){
-      const start = positions[i];
-      const size = segmentSizes[i];
-      for(let s=0;s<size;s++){
-        const idx = (start+s)%segCount;
-        mask[idx]=0;
-      }
-    }
-    ring.solidMask = mask;
-  }
-  initMask();
 
-  function startGame(){
-    bullets = [];
-    lastShot = performance.now();
-    shotInterval = 1200;
-    bulletSpeed = 100;
-    score = 0; lives = 3;
-    ring.rotation = 0;
-    ring.radius = ring.maxRadius;
-    flashEffect.active = false;
-    initMask();
-    running = true;
-    overlay.style.display='none';
-    updateHUD();
-    loop(performance.now());
-  }
-
-  function gameOver(){
-    running = false;
-    flashEffect.active = false;
-    const flashDiv = document.getElementById('gameFlash');
-    if(flashDiv) flashDiv.style.display = 'none';
-    overlay.style.display = 'flex';
-    document.getElementById('panel').innerHTML = `
-      <h2 style="margin:0 0 6px 0">oynayacagın oyunu sikim</h2>
-      <div class="small">skorun:: <strong>${score}</strong></div>
-      <div style=\"height:12px\"></div>
-      <button id=\"retryBtn\">malsın bi daha oyna</button>
-    `;
-    document.getElementById('retryBtn').addEventListener('click', ()=>{ startGame(); });
-  }
-
-  function triggerFlash(color){
-    flashEffect.active = true;
-    flashEffect.color = color;
-    flashEffect.startTime = performance.now();
-  }
-
-  function spawnBullet(now){
-    const angle = Math.random() * Math.PI * 2;
-    bullets.push({angle: angle, r: 10, speed: bulletSpeed, created: now});
-  }
-
-  function update(dt, now){
-    if(now - lastShot > shotInterval){
-      spawnBullet(now);
-      lastShot = now;
-      if(shotInterval > 300) shotInterval *= 0.985;
-    }
-    for(let i=bullets.length-1;i>=0;i--){
-      const b = bullets[i];
-      b.r += b.speed * dt;
-      const hitRadius = ring.radius;
-      const bulletRadius = 8;
-      if(b.r >= hitRadius - ring.thickness/2 - bulletRadius){
-        let a = b.angle % (Math.PI*2);
-        if(a<0) a+=Math.PI*2;
-        let rel = a - ring.rotation;
-        rel = (rel % (Math.PI*2) + Math.PI*2) % (Math.PI*2);
-        const segAngle = (Math.PI*2)/ring.segments;
-        const idx = Math.floor(rel / segAngle);
-        const solid = ring.solidMask[idx];
-        if(solid){
-          bullets.splice(i,1);
-          score++;
-          successSound.currentTime = 0; successSound.play();
-          triggerFlash('rgba(127, 209, 255, 0.4)');
-          if(bulletSpeed < maxBulletSpeed) bulletSpeed += 2;
-          if(shotInterval > 300) shotInterval *= 0.985;
-          ring.radius = Math.max(ring.minRadius, ring.radius - 0.6);
-          updateHUD();
+    function drawCard() {
+        if (currentDeck.length === 0) {
+            nextSeason(); return;
+        }
+        
+        currentCard = currentDeck.pop();
+        
+        document.getElementById('char-bg').style.backgroundColor = currentCard.char.bg;
+        const girlImg = document.getElementById('girl-img');
+        const npcIcon = document.getElementById('npc-icon');
+        
+        if (currentCard.char.type === 'girl') {
+            girlImg.src = currentCard.char.src;
+            girlImg.style.display = 'block';
+            npcIcon.style.display = 'none';
         } else {
-          bullets.splice(i,1);
-          lives--;
-          failSound.currentTime = 0; failSound.play();
-          triggerFlash('rgba(255, 80, 80, 0.4)');
-          updateHUD();
-          if(lives <= 0){ gameOver(); return; }
+            npcIcon.innerText = currentCard.char.icon;
+            npcIcon.style.display = 'block';
+            girlImg.style.display = 'none';
         }
-      }
-      if(b.r > Math.max(W,H)+200) bullets.splice(i,1);
+        
+        document.getElementById('char-name').innerText = currentCard.char.name;
+        document.getElementById('question-text').innerText = currentCard.text;
+        document.getElementById('choice-overlay-left').innerText = currentCard.left.text;
+        document.getElementById('choice-overlay-right').innerText = currentCard.right.text;
+        
+        resetCardPosition();
     }
-  }
 
-  function updateHUD(){
-    scoreEl.textContent = score;
-    livesEl.textContent = lives;
-  }
-
-  function draw(){
-    ctx.clearRect(0,0,W,H);
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-    for(let i=0;i<10;i++){
-      ctx.beginPath();
-      const r = ring.minRadius + (ring.maxRadius - ring.minRadius)*(i/9);
-      ctx.arc(W/2,H/2,r,0,Math.PI*2);
-      ctx.stroke();
+    function resetCardPosition() {
+        cardEl.style.transition = 'transform 0.3s ease';
+        cardEl.style.transform = `translate(-50%, -50%) rotate(0deg)`;
+        document.getElementById('choice-overlay-left').style.opacity = '0';
+        document.getElementById('choice-overlay-right').style.opacity = '0';
+        clearIndicators();
     }
-    ctx.save();
-    ctx.translate(W/2,H/2);
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();ctx.arc(0,0,18,0,Math.PI*2);ctx.fill();ctx.closePath();
-    ctx.beginPath();ctx.arc(0,0,34,0,Math.PI*2);ctx.strokeStyle='rgba(255,209,102,0.08)';ctx.lineWidth=8;ctx.stroke();ctx.closePath();
-    ctx.restore();
-    for(const b of bullets){
-      const x = W/2 + Math.cos(b.angle) * b.r;
-      const y = H/2 + Math.sin(b.angle) * b.r;
-      ctx.beginPath();ctx.fillStyle='#ffd166';ctx.arc(x,y,8,0,Math.PI*2);ctx.fill();ctx.closePath();
+
+    function makeChoice(direction) {
+        if (!currentCard) return;
+        let choice = direction === 'left' ? currentCard.left : currentCard.right;
+        
+        let dmgMult = 1 + ((currentSeason - 1) * 0.25); 
+        
+        for (let key in choice.effect) {
+            if(unlockedStats.includes(key)) {
+                let val = choice.effect[key];
+                stats[key] += (val < 0) ? Math.floor(val * dmgMult) : val;
+                if (stats[key] > 100) stats[key] = 100;
+            }
+        }
+        
+        cardsPlayed++;
+        updateUI();
+
+        let reason = checkGameOver();
+        if (reason) {
+            setTimeout(() => showGameOver(reason), 300);
+            return;
+        }
+
+        if (cardsPlayed >= cardsPerSeason) {
+            setTimeout(() => { showSeasonEnd(); }, 300);
+        } else {
+            setTimeout(drawCard, 200);
+        }
     }
-    ctx.save();
-    ctx.translate(W/2,H/2);
-    const segAngle = (Math.PI*2)/ring.segments;
-    for(let i=0;i<ring.segments;i++){
-      const start = i*segAngle + ring.rotation;
-      const end = start + segAngle;
-      ctx.beginPath();
-      ctx.arc(0,0,ring.radius, start, end);
-      ctx.lineWidth = ring.thickness;
-      ctx.strokeStyle = ring.solidMask[i] ? '#7fd1ff' : 'rgba(255,255,255,0.06)';
-      ctx.stroke();
+
+    function showSeasonEnd() {
+        let title = "SEZON " + currentSeason + " BİTTİ";
+        let desc = "Grup ayakta. Zorluk artıyor...";
+        
+        if(currentSeason === 1) desc = "Sezon 2'ye geçtin! Artık 📸 MEDYA statını da yönetmelisin.";
+        if(currentSeason === 2) desc = "Sezon 3'e geçtin! Artık 🛡️ GÜVENLİK statını da yönetmelisin.";
+        if(currentSeason === 3) desc = "Sezon 4'e geçtin! Artık 🌟 PRESTİJ statını da yönetmelisin.";
+        if(currentSeason === 4) desc = "Son Sezon! Artık ⚖️ YASAL statı da aktif. Hata lüksün yok.";
+
+        document.getElementById('season-title').innerText = title;
+        document.getElementById('season-desc').innerText = desc;
+        document.getElementById('season-screen').style.display = 'flex';
     }
-    ctx.restore();
-  }
 
-  let lastTime = 0;
-  function loop(now){
-    if(!running) return;
-    if(!lastTime) lastTime = now;
-    const dt = (now - lastTime)/1000;
-    update(dt, now);
-    draw();
-    drawFlash();
-    lastTime = now;
-    requestAnimationFrame(loop);
-  }
+    function nextSeason() {
+        currentSeason++;
+        if (currentSeason > 5) {
+            showGameOver("EFSANE OLDUNUZ! ZONYFEST DÜNYA MARKASI OLDU VE ZİRVEDE BIRAKTI.");
+            document.getElementById('go-title').style.color = "#44ff44";
+            return;
+        }
+        
+        if (currentSeason >= 2) { unlockedStats.push('media'); document.getElementById('stat-media').classList.remove('locked-stat'); }
+        if (currentSeason >= 3) { unlockedStats.push('security'); document.getElementById('stat-security').classList.remove('locked-stat'); }
+        if (currentSeason >= 4) { unlockedStats.push('prestige'); document.getElementById('stat-prestige').classList.remove('locked-stat'); }
+        if (currentSeason >= 5) { unlockedStats.push('legal'); document.getElementById('stat-legal').classList.remove('locked-stat'); }
 
-  function drawFlash(){
-    if(!flashEffect.active) return;
-    const elapsed = performance.now() - flashEffect.startTime;
-    if(elapsed < flashEffect.duration){
-      const progress = elapsed / flashEffect.duration;
-      const opacity = (1 - progress);
-      let flashDiv = document.getElementById('gameFlash');
-      if(!flashDiv){
-        flashDiv = document.createElement('div');
-        flashDiv.id = 'gameFlash';
-        flashDiv.style.cssText = `position: fixed;inset: 0;pointer-events: none;z-index: 9999;`;
-        document.body.appendChild(flashDiv);
-      }
-      const color = flashEffect.color.match(/rgba?\(([^)]+)\)/)[1].split(',').slice(0,3).join(',');
-      flashDiv.style.background = `radial-gradient(circle at center, rgba(${color},0) 0%, rgba(${color},${opacity * 0.3}) 60%, rgba(${color},${opacity * 0.6}) 100%)`;
-      flashDiv.style.display = 'block';
-    } else {
-      flashEffect.active = false;
-      const flashDiv = document.getElementById('gameFlash');
-      if(flashDiv) flashDiv.style.display = 'none';
+        cardsPlayed = 0; 
+        document.getElementById('season-screen').style.display = 'none';
+        document.getElementById('season-display').innerText = `SEZON ${currentSeason}`;
+        buildDeckForSeason();
+        drawCard();
     }
-  }
 
-  let dragging = false; let lastAngle = 0;
-  function getPos(e){
-    const rect = canvas.getBoundingClientRect();
-    let x,y;
-    if(e.touches && e.touches[0]){ x = e.touches[0].clientX; y = e.touches[0].clientY; }
-    else { x = e.clientX; y = e.clientY; }
-    return {x: x - rect.left, y: y - rect.top};
-  }
-  function angleFromCenter(p){ return Math.atan2(p.y - H/2, p.x - W/2); }
-  canvas.addEventListener('pointerdown', (ev)=>{
-    canvas.setPointerCapture(ev.pointerId);
-    dragging = true;
-    const p = getPos(ev);
-    lastAngle = angleFromCenter(p);
-  });
-  canvas.addEventListener('pointermove', (ev)=>{
-    if(!dragging) return;
-    const p = getPos(ev);
-    const a = angleFromCenter(p);
-    const delta = a - lastAngle;
-    ring.rotation += delta;
-    lastAngle = a;
-  });
-  canvas.addEventListener('pointerup', ()=>{ dragging = false; });
-  canvas.addEventListener('pointercancel', ()=>{ dragging = false; });
-  canvas.addEventListener('click', (ev)=>{
-    const p = getPos(ev);
-    if(p.x < W/2) ring.rotation -= 0.25; else ring.rotation += 0.25;
-  });
+    function checkGameOver() {
+        if (stats.pop <= 0) return "Hayranlar sizi tamamen unuttu. ZONYFEST iptal edildi.";
+        if (stats.money <= 0) return "Şirket battı. Sözleşmeniz feshedildi. Kovuldun.";
+        if (stats.mental <= 0) return "Psikolojik çöküş! Grup tükenmişlik sendromu yüzünden dağıldı.";
+        if (stats.harmony <= 0) return "Kızlar sahnede kavga etti! Birbirleriyle konuşmuyorlar. Grup bitti.";
+        
+        if (unlockedStats.includes('media') && stats.media <= 0) return "Medya sizi linç etti. Sponsorlar çekildi, grup kara listeye alındı.";
+        if (unlockedStats.includes('security') && stats.security <= 0) return "Güvenlik zafiyeti! Grup tehlikeye girdi ve faaliyetler mecburen durduruldu.";
+        if (unlockedStats.includes('prestige') && stats.prestige <= 0) return "Sektördeki saygınlığınız bitti. Artık kimse ZONYFEST'i ciddiye almıyor.";
+        if (unlockedStats.includes('legal') && stats.legal <= 0) return "Şirkete dava açıldı, tazminatlar ödenemedi. Yönetici olarak sen suçlandın ve hapse girdin!";
+        
+        return null; 
+    }
 
-  startBtn.addEventListener('click', startGame);
-  resize(); draw();
-})();
+    function showGameOver(text) {
+        document.getElementById('go-desc').innerText = text;
+        document.getElementById('game-over').style.display = 'flex';
+        document.getElementById('card-area').style.display = 'none';
+        document.getElementById('top-ui').style.display = 'none';
+    }
+
+    function updateUI() {
+        unlockedStats.forEach(stat => {
+            let bar = document.getElementById(`bar-${stat}`);
+            if (bar) {
+                bar.style.width = stats[stat] + '%';
+                bar.style.backgroundColor = (stats[stat] < 25) ? '#ff4444' : '#fff';
+            }
+        });
+    }
+
+    function showIndicators(effect) {
+        clearIndicators();
+        for (let key in effect) {
+            if(unlockedStats.includes(key)) {
+                let val = effect[key];
+                let ind = document.getElementById(`ind-${key}`);
+                if (ind) {
+                    ind.style.display = 'block';
+                    ind.style.backgroundColor = val > 0 ? '#44ff44' : '#ff4444';
+                    ind.style.borderColor = val > 0 ? '#00cc00' : '#cc0000';
+                    
+                    let absVal = Math.abs(val);
+                    let size = '8px';
+                    if (absVal >= 15) size = '16px'; 
+                    if (absVal >= 25) size = '26px'; 
+                    
+                    ind.style.width = size;
+                    ind.style.height = size;
+                }
+            }
+        }
+    }
+    
+    function clearIndicators() {
+        document.querySelectorAll('.indicator').forEach(el => el.style.display = 'none');
+    }
+
+    const cardEl = document.getElementById('card');
+    const overlayLeft = document.getElementById('choice-overlay-left');
+    const overlayRight = document.getElementById('choice-overlay-right');
+    let startX = 0;
+    let currentX = 0;
+    let isDragging = false;
+
+    cardEl.addEventListener('pointerdown', (e) => {
+        startX = e.clientX;
+        isDragging = true;
+        cardEl.style.transition = 'none';
+        cardEl.setPointerCapture(e.pointerId);
+    });
+
+    cardEl.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        currentX = e.clientX - startX;
+        let rotate = currentX * 0.05;
+        
+        cardEl.style.transform = `translate(calc(-50% + ${currentX}px), -50%) rotate(${rotate}deg)`;
+        
+        let opacityVal = Math.min(Math.abs(currentX) / 60, 1);
+        
+        if (currentX < -20) {
+            overlayLeft.style.opacity = opacityVal;
+            overlayRight.style.opacity = '0';
+            showIndicators(currentCard.left.effect);
+        } else if (currentX > 20) {
+            overlayRight.style.opacity = opacityVal;
+            overlayLeft.style.opacity = '0';
+            showIndicators(currentCard.right.effect);
+        } else {
+            overlayLeft.style.opacity = '0';
+            overlayRight.style.opacity = '0';
+            clearIndicators();
+        }
+    });
+
+    cardEl.addEventListener('pointerup', (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        cardEl.releasePointerCapture(e.pointerId);
+        
+        if (currentX < -80) {
+            cardEl.style.transition = 'transform 0.3s ease';
+            cardEl.style.transform = `translate(calc(-50% - 400px), -50%) rotate(-20deg)`;
+            makeChoice('left');
+        } else if (currentX > 80) {
+            cardEl.style.transition = 'transform 0.3s ease';
+            cardEl.style.transform = `translate(calc(-50% + 400px), -50%) rotate(20deg)`;
+            makeChoice('right');
+        } else {
+            resetCardPosition();
+        }
+        currentX = 0;
+    });
 </script>
 </body>
 </html>
